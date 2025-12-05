@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homebites_app/features/orders/presentation/cart_fab.dart';
 import 'package:provider/provider.dart';
 
 import '../../auth/application/auth_provider.dart';
@@ -43,8 +44,10 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
+
+      // 🔴 Botón de carrito persistente
+      floatingActionButton: const CartFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
-
-// TODO Implement this library.

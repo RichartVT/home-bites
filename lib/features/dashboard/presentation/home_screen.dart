@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homebites_app/features/products/presentations/kitchen_detail_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../products/application/kitchens_provider.dart';
@@ -77,7 +78,8 @@ class HomeScreen extends StatelessWidget {
                         hintText: 'Buscar platillos o cocineros...',
                         prefixIcon: const Icon(Icons.search),
                         filled: true,
-                        fillColor: colorScheme.surfaceVariant.withOpacity(0.6),
+                        fillColor: colorScheme.surfaceContainerHighest
+                            .withOpacity(0.6),
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 0,
                           horizontal: 12,
@@ -178,7 +180,7 @@ class _CategoryChip extends StatelessWidget {
           color: selected ? colorScheme.onPrimary : colorScheme.onSurface,
         ),
         selectedColor: colorScheme.primary,
-        backgroundColor: colorScheme.surfaceVariant,
+        backgroundColor: colorScheme.surfaceContainerHighest,
         onSelected: (_) {
           // TODO: filtrar por categoría cuando tengamos lógica
         },
@@ -302,88 +304,104 @@ class _KitchenCardFromModel extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Imagen
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  kitchen.imageUrl.isNotEmpty
-                      ? Image.network(kitchen.imageUrl, fit: BoxFit.cover)
-                      : Container(color: Colors.grey[300]),
-                  Positioned(
-                    right: 12,
-                    top: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            kitchen.rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => KitchenDetailScreen(kitchen: kitchen),
+            ),
+          );
+        },
+        child: Card(
+          clipBehavior: Clip.antiAlias,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Imagen
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    kitchen.imageUrl.isNotEmpty
+                        ? Image.network(kitchen.imageUrl, fit: BoxFit.cover)
+                        : Container(color: Colors.grey[300]),
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: 14,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              kitchen.rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Info
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 8,
+              // Info
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12.0,
+                  vertical: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      kitchen.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${kitchen.category} • ${kitchen.distanceKm.toStringAsFixed(1)} km',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\$${kitchen.minPrice.toStringAsFixed(0)} - '
+                      '\$${kitchen.maxPrice.toStringAsFixed(0)} • '
+                      '${kitchen.deliveryTimeMinutes} min',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    kitchen.name,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${kitchen.category} • ${kitchen.distanceKm.toStringAsFixed(1)} km',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '\$${kitchen.minPrice.toStringAsFixed(0)} - '
-                    '\$${kitchen.maxPrice.toStringAsFixed(0)} • '
-                    '${kitchen.deliveryTimeMinutes} min',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
