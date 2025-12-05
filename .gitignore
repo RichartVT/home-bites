@@ -1,0 +1,111 @@
+# -----------------------------
+# OS / Editor files
+# -----------------------------
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# -----------------------------
+# Flutter / Dart
+# -----------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+generated_plugin_registrant.dart
+
+# Flutter API docs
+doc/api/
+
+# Debug / profiling artifacts
+*.log
+*.json.report
+*.cblite2
+
+# -----------------------------
+# Android
+# -----------------------------
+**/android/**/build/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+android/.gradle/
+android/.idea/
+android/local.properties
+android/key.properties
+android/app/google-services.json  # Firebase Android config
+
+# -----------------------------
+# iOS / Xcode
+# -----------------------------
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/.symlinks/
+**/ios/Pods/
+**/ios/build/
+**/ios/Runner.xcworkspace/xcuserdata/
+**/ios/Runner.xcworkspace/xcshareddata/
+**/ios/Runner.xcodeproj/project.xcworkspace/
+**/ios/Runner.xcodeproj/xcuserdata/
+ios/Runner/GoogleService-Info.plist   # Firebase iOS config (MUST BE IGNORED)
+ios/Podfile.lock  # optional but recommended to ignore for cross-team setups
+
+# -----------------------------
+# macOS
+# -----------------------------
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+**/macos/build/
+macos/Runner/GoogleService-Info.plist  # If macOS uses Firebase
+
+# -----------------------------
+# Web
+# -----------------------------
+web/firebase-messaging-sw.js  # If auto-generated
+web/firebase-config.js         # If manually added config
+
+# -----------------------------
+# Linux / Windows
+# -----------------------------
+**/linux/build/
+**/windows/build/
+
+# -----------------------------
+# Firebase
+# -----------------------------
+*.firebase/
+*.firebaserc
+firebase-debug.log
+
+# -----------------------------
+# Symbolication / Maps
+# -----------------------------
+app.*.symbols
+app.*.map.json
+
+# -----------------------------
+# Misc
+# -----------------------------
+*.class
+*.pyc
+*.pyo
+*.lock
+*.bak
+*.tmp
