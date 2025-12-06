@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../orders/application/cart_provider.dart';
+import '../../orders/presentation/checkout_screen.dart';
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
-  // ========== Crear pedido ==========
+  // ========== Crear pedido (flujo normal, sin Stripe) ==========
   Future<void> _placeOrder(BuildContext context, CartProvider cart) async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -24,7 +25,6 @@ class OrdersScreen extends StatelessWidget {
     if (cart.isEmpty || cart.kitchen == null) return;
 
     final firestore = FirebaseFirestore.instance;
-
     final orderRef = firestore.collection('orders').doc();
 
     // Datos extra para mostrar en el historial
@@ -44,7 +44,7 @@ class OrdersScreen extends StatelessWidget {
         'kitchenName': cart.kitchen!.name,
         'kitchenImageUrl': cart.kitchen!.imageUrl,
         'total': cart.total,
-        'status': 'pending',
+        'status': 'pending', // 👈 flujo normal = pendiente
         'itemsCount': totalItems,
         'firstDishName': firstDishName,
         'createdAt': FieldValue.serverTimestamp(),
@@ -95,6 +95,8 @@ class OrdersScreen extends StatelessWidget {
         return 'Entregado';
       case 'cancelled':
         return 'Cancelado';
+      case 'paid':
+        return 'Pagado'; // 👈 NUEVO
       default:
         return status;
     }
@@ -112,13 +114,14 @@ class OrdersScreen extends StatelessWidget {
         return Colors.green[700] ?? scheme.primary;
       case 'cancelled':
         return Colors.red[700] ?? scheme.error;
+      case 'paid':
+        return Colors.green[800] ?? scheme.primary; // 👈 NUEVO
       default:
         return scheme.primary;
     }
   }
 
   String _formatDate(DateTime date) {
-    // 4/12/2025
     return '${date.day}/${date.month}/${date.year}';
   }
 
@@ -204,11 +207,27 @@ class OrdersScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    // 👉 Flujo actual (crea pedido "pending" sin Stripe)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () => _placeOrder(context, cart),
                         child: const Text('Confirmar pedido'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 👉 Nuevo flujo: pago con Stripe
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const CheckoutScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text('Pagar con tarjeta (Stripe Test)'),
                       ),
                     ),
                   ],
@@ -360,7 +379,6 @@ class OrdersScreen extends StatelessWidget {
                                           ?.copyWith(color: Colors.grey[600]),
                                     ),
                                   const SizedBox(height: 6),
-                                  // Chip de estado
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,

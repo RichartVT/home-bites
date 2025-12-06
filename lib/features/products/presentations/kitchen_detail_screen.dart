@@ -6,6 +6,10 @@ import '../domain/dish.dart';
 import '../domain/kitchen.dart';
 import '../../orders/application/cart_provider.dart';
 import 'dish_form_screen.dart'; // 👈 mismo folder de presentations
+import 'kitchen_form_screen.dart'; // 👈 añade este
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dish_form_screen.dart';
 
 class KitchenDetailScreen extends StatelessWidget {
   final Kitchen kitchen;
@@ -60,11 +64,105 @@ class KitchenDetailScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
             ),
             actions: [
+              // BOTÓN EDITAR (AZUL)
               IconButton(
-                icon: const Icon(Icons.favorite_border),
-                onPressed: () {},
+                tooltip: 'Editar cocina',
+                icon: const Icon(
+                  Icons.edit_note,
+                  color: Color(
+                    0xFF1976D2,
+                  ), // azul vivo estilo Material Blue 700
+                  size: 28,
+                ),
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => KitchenFormScreen(kitchen: kitchen),
+                    ),
+                  );
+                },
+              ),
+
+              // BOTÓN ELIMINAR (ROJO)
+              IconButton(
+                tooltip: 'Eliminar cocina',
+                icon: const Icon(
+                  Icons.delete_forever,
+                  color: Color(
+                    0xFFD32F2F,
+                  ), // rojo intenso estilo Material Red 700
+                  size: 26,
+                ),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Eliminar cocina'),
+                      content: const Text(
+                        '¿Seguro que quieres eliminar esta cocina?\n'
+                        'Esto también eliminará todos sus platillos.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: const Text(
+                            'Eliminar',
+                            style: TextStyle(
+                              color: Color(0xFFD32F2F), // rojo
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    try {
+                      final firestore = FirebaseFirestore.instance;
+
+                      // 1) eliminar cocina
+                      await firestore
+                          .collection('kitchens')
+                          .doc(kitchen.id)
+                          .delete();
+
+                      // 2) eliminar sus platillos
+                      final dishesSnap = await firestore
+                          .collection('dishes')
+                          .where('kitchenId', isEqualTo: kitchen.id)
+                          .get();
+
+                      for (final d in dishesSnap.docs) {
+                        await d.reference.delete();
+                      }
+
+                      if (context.mounted) {
+                        Navigator.of(context).pop(); // volver al home
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Cocina eliminada correctamente 🗑️'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error al eliminar cocina: $e'),
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
               ),
             ],
+
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsetsDirectional.only(
                 start: 16,
@@ -200,7 +298,7 @@ class KitchenDetailScreen extends StatelessWidget {
                     final dish = dishes[index];
                     return _DishTile(
                       dish: dish,
-                      kitchen: kitchen, // 👈 usamos la cocina actual
+                      kitchen: kitchen, // 👈 pasamos la cocina actual
                     );
                   },
                 );
@@ -220,6 +318,52 @@ class _DishTile extends StatelessWidget {
 
   const _DishTile({required this.dish, required this.kitchen});
 
+  Future<void> _deleteDish(BuildContext context) async {
+    final firestore = FirebaseFirestore.instance;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar platillo'),
+        content: Text(
+          '¿Seguro que quieres eliminar "${dish.name}"?\n'
+          'Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await firestore.collection('dishes').doc(dish.id).delete();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Se eliminó "${dish.name}"'),
+        duration: const Duration(milliseconds: 900),
+      ),
+    );
+  }
+
+  Future<void> _editDish(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DishFormScreen(kitchen: kitchen, dish: dish),
+      ),
+    );
+    // El StreamBuilder recarga automáticamente, no necesitamos hacer nada más
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -236,6 +380,7 @@ class _DishTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (dish.isPopular)
                       Container(
@@ -256,13 +401,48 @@ class _DishTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                    Flexible(
+                    Expanded(
                       child: Text(
                         dish.name,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 4),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'edit':
+                            _editDish(context);
+                            break;
+                          case 'delete':
+                            _deleteDish(context);
+                            break;
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: const [
+                              Icon(Icons.edit, size: 18, color: Colors.blue),
+                              SizedBox(width: 8),
+                              Text('Editar'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: const [
+                              Icon(Icons.delete, size: 18, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Eliminar'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -282,6 +462,7 @@ class _DishTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
+                // Botón "Agregar"
                 SizedBox(
                   height: 32,
                   child: OutlinedButton(
@@ -299,9 +480,7 @@ class _DishTile extends StatelessWidget {
                         horizontal: 12,
                         vertical: 0,
                       ),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                      side: BorderSide(color: theme.colorScheme.primary),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -315,6 +494,7 @@ class _DishTile extends StatelessWidget {
 
           const SizedBox(width: 12),
 
+          // Imagen del platillo
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: dish.imageUrl.isNotEmpty

@@ -1,17 +1,159 @@
 import 'package:flutter/material.dart';
 import 'package:homebites_app/features/products/presentations/kitchen_detail_screen.dart';
+import 'package:homebites_app/features/products/presentations/kitchen_form_screen.dart';
+import 'package:homebites_app/features/products/presentations/favorites_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../products/application/kitchens_provider.dart';
+import '../../products/application/favorites_provider.dart';
 import '../../products/domain/kitchen.dart';
 
-class HomeScreen extends StatelessWidget {
+enum KitchenSort { recommended, rating, fastest }
+
+// ================= HOME SCREEN (STATEFUL) =================
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  String _searchQuery = '';
+  String _selectedCategory = 'Todos';
+
+  KitchenSort _sort = KitchenSort.recommended;
+  double? _maxDistanceKm; // null = sin límite
+
+  final List<String> _categories = const [
+    'Todos',
+    'Mexicana',
+    'Comida corrida',
+    'Postres',
+    'Vegano',
+  ];
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openFiltersSheet() async {
+    KitchenSort tempSort = _sort;
+    double? tempMaxDistance = _maxDistanceKm;
+
+    await showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            top: 8,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Filtros',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Ordenar por', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  RadioListTile<KitchenSort>(
+                    value: KitchenSort.recommended,
+                    groupValue: tempSort,
+                    title: const Text('Recomendado'),
+                    onChanged: (v) =>
+                        setModalState(() => tempSort = v ?? tempSort),
+                  ),
+                  RadioListTile<KitchenSort>(
+                    value: KitchenSort.rating,
+                    groupValue: tempSort,
+                    title: const Text('Mejor calificados'),
+                    onChanged: (v) =>
+                        setModalState(() => tempSort = v ?? tempSort),
+                  ),
+                  RadioListTile<KitchenSort>(
+                    value: KitchenSort.fastest,
+                    groupValue: tempSort,
+                    title: const Text('Más rápidos'),
+                    onChanged: (v) =>
+                        setModalState(() => tempSort = v ?? tempSort),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Distancia máxima', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Sin límite'),
+                        selected: tempMaxDistance == null,
+                        onSelected: (_) =>
+                            setModalState(() => tempMaxDistance = null),
+                      ),
+                      FilterChip(
+                        label: const Text('≤ 5 km'),
+                        selected: tempMaxDistance == 5,
+                        onSelected: (_) =>
+                            setModalState(() => tempMaxDistance = 5),
+                      ),
+                      FilterChip(
+                        label: const Text('≤ 10 km'),
+                        selected: tempMaxDistance == 10,
+                        onSelected: (_) =>
+                            setModalState(() => tempMaxDistance = 10),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _sort = tempSort;
+                          _maxDistanceKm = tempMaxDistance;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Aplicar filtros'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final favorites = context.watch<FavoritesProvider>();
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -52,8 +194,18 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const Spacer(),
                         IconButton(
-                          onPressed: () {},
-                          icon: const Icon(Icons.favorite_outline),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const FavoritesScreen(),
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            favorites.favoriteKitchenIds.isNotEmpty
+                                ? Icons.favorite
+                                : Icons.favorite_outline,
+                          ),
                         ),
                         IconButton(
                           onPressed: () {},
@@ -72,38 +224,64 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // Buscador
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Buscar platillos o cocineros...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: colorScheme.surfaceContainerHighest
-                            .withOpacity(0.6),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 0,
-                          horizontal: 12,
+                    // Buscador + botón filtros
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchCtrl,
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value.trim().toLowerCase();
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Buscar platillos o cocineros...',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerHighest
+                                  .withOpacity(0.6),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 0,
+                                horizontal: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          onPressed: _openFiltersSheet,
+                          icon: const Icon(Icons.tune),
+                          tooltip: 'Filtros',
                         ),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
-                    // Chips de categorías
+                    // Chips de categorías (funcionales)
                     SizedBox(
                       height: 36,
-                      child: ListView(
+                      child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        children: const [
-                          _CategoryChip(label: 'Todos', selected: true),
-                          _CategoryChip(label: 'Mexicana'),
-                          _CategoryChip(label: 'Comida corrida'),
-                          _CategoryChip(label: 'Postres'),
-                          _CategoryChip(label: 'Vegano'),
-                        ],
+                        itemCount: _categories.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final category = _categories[index];
+                          final isSelected = _selectedCategory == category;
+                          return _CategoryChip(
+                            label: category,
+                            selected: isSelected,
+                            onTap: () {
+                              setState(() {
+                                _selectedCategory = category;
+                              });
+                            },
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -136,6 +314,7 @@ class HomeScreen extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
                         TextButton(
                           onPressed: () {},
                           child: const Text('Ver todo'),
@@ -147,13 +326,33 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-            // ======= Lista desde Firestore =======
-            SliverToBoxAdapter(child: const SizedBox(height: 8)),
-            SliverToBoxAdapter(child: const _KitchensFromFirestore()),
+            // ======= Lista desde Firestore (con filtros) =======
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            SliverToBoxAdapter(
+              child: _KitchensFromFirestore(
+                searchQuery: _searchQuery,
+                selectedCategory: _selectedCategory,
+                sort: _sort,
+                maxDistanceKm: _maxDistanceKm,
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const KitchenFormScreen()));
+        },
+        icon: const Icon(Icons.store_mall_directory, color: Colors.white),
+        label: const Text(
+          'Nueva cocina',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -163,28 +362,28 @@ class HomeScreen extends StatelessWidget {
 class _CategoryChip extends StatelessWidget {
   final String label;
   final bool selected;
+  final VoidCallback onTap;
 
-  const _CategoryChip({required this.label, this.selected = false});
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        labelStyle: theme.textTheme.labelMedium?.copyWith(
-          color: selected ? colorScheme.onPrimary : colorScheme.onSurface,
-        ),
-        selectedColor: colorScheme.primary,
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        onSelected: (_) {
-          // TODO: filtrar por categoría cuando tengamos lógica
-        },
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      labelStyle: theme.textTheme.labelMedium?.copyWith(
+        color: selected ? colorScheme.onPrimary : colorScheme.onSurface,
       ),
+      selectedColor: colorScheme.primary,
+      backgroundColor: colorScheme.surfaceContainerHighest,
+      onSelected: (_) => onTap(),
     );
   }
 }
@@ -241,7 +440,17 @@ class _PromoCard extends StatelessWidget {
 // =============== FIRESTORE ===============
 
 class _KitchensFromFirestore extends StatelessWidget {
-  const _KitchensFromFirestore();
+  final String searchQuery;
+  final String selectedCategory;
+  final KitchenSort sort;
+  final double? maxDistanceKm;
+
+  const _KitchensFromFirestore({
+    required this.searchQuery,
+    required this.selectedCategory,
+    required this.sort,
+    required this.maxDistanceKm,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -270,12 +479,60 @@ class _KitchensFromFirestore extends StatelessWidget {
           );
         }
 
-        final kitchens = snapshot.data ?? [];
+        final allKitchens = snapshot.data ?? [];
+
+        // 🔍 filtro por texto
+        final q = searchQuery.trim().toLowerCase();
+        Iterable<Kitchen> filtered = allKitchens;
+
+        if (q.isNotEmpty) {
+          filtered = filtered.where((k) {
+            final name = k.name.toLowerCase();
+            final category = k.category.toLowerCase();
+            return name.contains(q) || category.contains(q);
+          });
+        }
+
+        // 🏷 filtro por categoría (si no es "Todos")
+        if (selectedCategory != 'Todos') {
+          filtered = filtered.where(
+            (k) => k.category.toLowerCase() == selectedCategory.toLowerCase(),
+          );
+        }
+
+        // 📍 filtro por distancia máxima
+        if (maxDistanceKm != null) {
+          filtered = filtered.where(
+            (k) => k.distanceKm <= (maxDistanceKm ?? 9999),
+          );
+        }
+
+        final kitchens = filtered.toList();
+
+        // ↕️ ordenar
+        switch (sort) {
+          case KitchenSort.rating:
+            kitchens.sort((a, b) => b.rating.compareTo(a.rating));
+            break;
+          case KitchenSort.fastest:
+            kitchens.sort(
+              (a, b) => a.deliveryTimeMinutes.compareTo(b.deliveryTimeMinutes),
+            );
+            break;
+          case KitchenSort.recommended:
+          default:
+            // Pequeña mezcla: rating alto y luego más cercanas
+            kitchens.sort((a, b) {
+              final byRating = b.rating.compareTo(a.rating);
+              if (byRating != 0) return byRating;
+              return a.distanceKm.compareTo(b.distanceKm);
+            });
+        }
 
         if (kitchens.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(24.0),
-            child: Text('Aún no hay cocinas registradas en HomeBites.'),
+            child: Text('No encontramos cocinas con esos filtros.'),
           );
         }
 
@@ -301,6 +558,8 @@ class _KitchenCardFromModel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final favorites = context.watch<FavoritesProvider>();
+    final isFav = favorites.isFavorite(kitchen.id);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
@@ -331,6 +590,7 @@ class _KitchenCardFromModel extends StatelessWidget {
                     kitchen.imageUrl.isNotEmpty
                         ? Image.network(kitchen.imageUrl, fit: BoxFit.cover)
                         : Container(color: Colors.grey[300]),
+                    // Rating (arriba derecha)
                     Positioned(
                       right: 12,
                       top: 12,
@@ -360,6 +620,37 @@ class _KitchenCardFromModel extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                    // Corazón (arriba izquierda)
+                    Positioned(
+                      left: 12,
+                      top: 12,
+                      child: IconButton(
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black.withOpacity(0.4),
+                        ),
+                        icon: Icon(
+                          isFav
+                              ? Icons.favorite
+                              : Icons.favorite_border_outlined,
+                          color: isFav ? Colors.redAccent : Colors.white,
+                        ),
+                        onPressed: () async {
+                          try {
+                            await favorites.toggleFavorite(kitchen);
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Error al actualizar favoritos: $e',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
                       ),
                     ),
                   ],

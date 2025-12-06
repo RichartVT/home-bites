@@ -1,17 +1,14 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/services/storage_service.dart';
-import '../domain/kitchen.dart';
 import '../domain/dish.dart';
-import 'package:image_picker/image_picker.dart';
+import '../domain/kitchen.dart';
 
 class DishFormScreen extends StatefulWidget {
   final Kitchen kitchen;
+  final Dish? dish; // 👉 null = nuevo, no null = editar
 
-  const DishFormScreen({super.key, required this.kitchen});
+  const DishFormScreen({super.key, required this.kitchen, this.dish});
 
   @override
   State<DishFormScreen> createState() => _DishFormScreenState();
@@ -24,13 +21,28 @@ class _DishFormScreenState extends State<DishFormScreen> {
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _prepTimeCtrl = TextEditingController();
+  final _imageUrlCtrl = TextEditingController();
 
   bool _isPopular = false;
   bool _isSaving = false;
 
-  File? _imageFile;
+  @override
+  void initState() {
+    super.initState();
 
-  final _picker = ImagePicker();
+    final dish = widget.dish;
+    if (dish != null) {
+      // 👉 Modo edición: prellenar campos
+      _nameCtrl.text = dish.name;
+      _descCtrl.text = dish.description;
+      _priceCtrl.text = dish.price == dish.price.roundToDouble()
+          ? dish.price.toInt().toString()
+          : dish.price.toString();
+      _prepTimeCtrl.text = dish.prepTimeMinutes.toString();
+      _imageUrlCtrl.text = dish.imageUrl;
+      _isPopular = dish.isPopular;
+    }
+  }
 
   @override
   void dispose() {
@@ -38,21 +50,8 @@ class _DishFormScreenState extends State<DishFormScreen> {
     _descCtrl.dispose();
     _priceCtrl.dispose();
     _prepTimeCtrl.dispose();
+    _imageUrlCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1200,
-      imageQuality: 85,
-    );
-
-    if (picked == null) return;
-
-    setState(() {
-      _imageFile = File(picked.path);
-    });
   }
 
   Future<void> _saveDish() async {
@@ -61,64 +60,59 @@ class _DishFormScreenState extends State<DishFormScreen> {
     setState(() => _isSaving = true);
 
     try {
-      String imageUrl = widget.kitchen.imageUrl;
-
-      // Si el usuario eligió foto nueva, la subimos
-      if (_imageFile != null) {
-        imageUrl = await StorageService.instance.uploadImageFile(
-          _imageFile!,
-          pathPrefix: 'dishes/${widget.kitchen.id}',
-        );
-      }
-
+      final name = _nameCtrl.text.trim();
+      final desc = _descCtrl.text.trim();
       final price = double.tryParse(_priceCtrl.text.trim()) ?? 0;
       final prepTime = int.tryParse(_prepTimeCtrl.text.trim()) ?? 0;
+      final imageUrl = _imageUrlCtrl.text.trim();
 
       final firestore = FirebaseFirestore.instance;
-
       final dishesRef = firestore.collection('dishes');
 
-      final dishDoc = dishesRef.doc();
+      if (widget.dish == null) {
+        // 👉 Crear nuevo platillo
+        final newDishRef = await dishesRef.add({
+          'kitchenId': widget.kitchen.id,
+          'name': name,
+          'description': desc,
+          'imageUrl': imageUrl,
+          'price': price,
+          'prepTimeMinutes': prepTime,
+          'isPopular': _isPopular,
+        });
 
-      final dish = Dish(
-        id: dishDoc.id,
-        kitchenId: widget.kitchen.id,
-        name: _nameCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        imageUrl: imageUrl,
-        price: price,
-        prepTimeMinutes: prepTime,
-        isPopular: _isPopular,
-      );
+        final created = Dish(
+          id: newDishRef.id,
+          kitchenId: widget.kitchen.id,
+          name: name,
+          description: desc,
+          imageUrl: imageUrl,
+          price: price,
+          prepTimeMinutes: prepTime,
+          isPopular: _isPopular,
+        );
 
-      await dishDoc.set({
-        'id': dish.id,
-        'kitchenId': dish.kitchenId,
-        'name': dish.name,
-        'description': dish.description,
-        'imageUrl': dish.imageUrl,
-        'price': dish.price,
-        'prepTimeMinutes': dish.prepTimeMinutes,
-        'isPopular': dish.isPopular,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+        Navigator.of(context).pop(created);
+      } else {
+        // 👉 Actualizar platillo existente
+        await dishesRef.doc(widget.dish!.id).update({
+          'name': name,
+          'description': desc,
+          'imageUrl': imageUrl,
+          'price': price,
+          'prepTimeMinutes': prepTime,
+          'isPopular': _isPopular,
+        });
 
-      if (mounted) {
-        Navigator.of(context).pop(dish);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Platillo guardado ✅')));
+        // No necesitamos regresar nada especial
+        Navigator.of(context).pop();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar platillo: $e')),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al guardar platillo: $e')));
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -127,154 +121,99 @@ class _DishFormScreenState extends State<DishFormScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Nuevo platillo – ${widget.kitchen.name}')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: AbsorbPointer(
-          absorbing: _isSaving,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                // Imagen
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: Colors.grey[200],
-                        image: _imageFile != null
-                            ? DecorationImage(
-                                image: FileImage(_imageFile!),
-                                fit: BoxFit.cover,
-                              )
-                            : (widget.kitchen.imageUrl.isNotEmpty
-                                  ? DecorationImage(
-                                      image: NetworkImage(
-                                        widget.kitchen.imageUrl,
-                                      ),
-                                      fit: BoxFit.cover,
-                                      colorFilter: ColorFilter.mode(
-                                        Colors.black.withOpacity(0.2),
-                                        BlendMode.darken,
-                                      ),
-                                    )
-                                  : null),
-                      ),
-                      child:
-                          _imageFile == null && widget.kitchen.imageUrl.isEmpty
-                          ? const Center(
-                              child: Icon(
-                                Icons.add_a_photo_outlined,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
-                            )
-                          : Align(
-                              alignment: Alignment.bottomRight,
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Text(
-                                    'Cambiar foto',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
+      appBar: AppBar(
+        title: Text(widget.dish == null ? 'Nuevo platillo' : 'Editar platillo'),
+      ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(widget.kitchen.name, style: theme.textTheme.titleMedium),
+              const SizedBox(height: 16),
 
-                TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre del platillo',
-                  ),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Ingresa un nombre'
-                      : null,
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del platillo',
                 ),
-                const SizedBox(height: 12),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Escribe un nombre'
+                    : null,
+              ),
+              const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: _descCtrl,
-                  decoration: const InputDecoration(labelText: 'Descripción'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
+              TextFormField(
+                controller: _descCtrl,
+                decoration: const InputDecoration(labelText: 'Descripción'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: _priceCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Precio',
-                    prefixText: '\$',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Ingresa un precio';
-                    }
-                    if (double.tryParse(v) == null) {
-                      return 'Precio inválido';
-                    }
-                    return null;
-                  },
+              TextFormField(
+                controller: _priceCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Precio',
+                  prefixText: '\$',
                 ),
-                const SizedBox(height: 12),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Escribe un precio';
+                  }
+                  final value = double.tryParse(v.trim());
+                  if (value == null || value <= 0) {
+                    return 'Precio inválido';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
 
-                TextFormField(
-                  controller: _prepTimeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Tiempo de preparación (minutos)',
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: false,
-                  ),
+              TextFormField(
+                controller: _prepTimeCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Tiempo de preparación (min)',
                 ),
-                const SizedBox(height: 12),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
 
-                SwitchListTile(
-                  value: _isPopular,
-                  onChanged: (v) => setState(() => _isPopular = v),
-                  title: const Text('Marcar como platillo popular'),
+              TextFormField(
+                controller: _imageUrlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'URL de imagen (opcional)',
+                  helperText: 'Debe ser una URL accesible (https://...)',
                 ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 12),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _isSaving ? null : _saveDish,
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                        : const Text('Guardar platillo'),
-                  ),
+              SwitchListTile(
+                title: const Text('Marcar como popular'),
+                value: _isPopular,
+                onChanged: (v) => setState(() => _isPopular = v),
+              ),
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _isSaving ? null : _saveDish,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          widget.dish == null
+                              ? 'Guardar platillo'
+                              : 'Guardar cambios',
+                        ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
