@@ -383,7 +383,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,

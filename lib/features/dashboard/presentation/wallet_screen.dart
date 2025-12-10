@@ -27,9 +27,9 @@ class _WalletScreenState extends State<WalletScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (context) {
-        final _numberCtrl = TextEditingController();
-        final _nameCtrl = TextEditingController();
-        final _expiryCtrl = TextEditingController();
+        final numberCtrl = TextEditingController();
+        final nameCtrl = TextEditingController();
+        final expiryCtrl = TextEditingController();
 
         return Padding(
           padding: EdgeInsets.only(
@@ -49,7 +49,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: _numberCtrl,
+                controller: numberCtrl,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Número de tarjeta',
@@ -57,14 +57,14 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: _nameCtrl,
+                controller: nameCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Nombre del titular',
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: _expiryCtrl,
+                controller: expiryCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Fecha de expiración (MM/AA)',
                 ),
@@ -74,16 +74,16 @@ class _WalletScreenState extends State<WalletScreen> {
                 icon: const Icon(Icons.credit_card),
                 label: const Text('Guardar tarjeta'),
                 onPressed: () {
-                  if (_numberCtrl.text.length >= 4 &&
-                      _nameCtrl.text.isNotEmpty &&
-                      _expiryCtrl.text.isNotEmpty) {
+                  if (numberCtrl.text.length >= 4 &&
+                      nameCtrl.text.isNotEmpty &&
+                      expiryCtrl.text.isNotEmpty) {
                     setState(() {
                       _cards.add(
                         CreditCard(
                           number:
-                              '**** **** **** ${_numberCtrl.text.substring(_numberCtrl.text.length - 4)}',
-                          holder: _nameCtrl.text,
-                          expiry: _expiryCtrl.text,
+                              '**** **** **** ${numberCtrl.text.substring(numberCtrl.text.length - 4)}',
+                          holder: nameCtrl.text,
+                          expiry: expiryCtrl.text,
                           brand:
                               'Visa', // mejora futura: detectar marca automáticamente
                         ),

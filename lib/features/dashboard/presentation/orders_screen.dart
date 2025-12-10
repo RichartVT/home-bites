@@ -27,7 +27,6 @@ class OrdersScreen extends StatelessWidget {
     final firestore = FirebaseFirestore.instance;
     final orderRef = firestore.collection('orders').doc();
 
-    // Datos extra para mostrar en el historial
     final totalItems = cart.items.fold<int>(
       0,
       (sum, item) => sum + item.quantity,
@@ -44,7 +43,7 @@ class OrdersScreen extends StatelessWidget {
         'kitchenName': cart.kitchen!.name,
         'kitchenImageUrl': cart.kitchen!.imageUrl,
         'total': cart.total,
-        'status': 'pending', // 👈 flujo normal = pendiente
+        'status': 'pending',
         'itemsCount': totalItems,
         'firstDishName': firstDishName,
         'createdAt': FieldValue.serverTimestamp(),
@@ -73,7 +72,6 @@ class OrdersScreen extends StatelessWidget {
     }
   }
 
-  // ========== Stream de pedidos ==========
   Stream<QuerySnapshot<Map<String, dynamic>>> _ordersStream(String userId) {
     return FirebaseFirestore.instance
         .collection('orders')
@@ -82,7 +80,6 @@ class OrdersScreen extends StatelessWidget {
         .snapshots();
   }
 
-  // ========== Helpers de UI ==========
   String _statusLabel(String status) {
     switch (status) {
       case 'pending':
@@ -96,7 +93,7 @@ class OrdersScreen extends StatelessWidget {
       case 'cancelled':
         return 'Cancelado';
       case 'paid':
-        return 'Pagado'; // 👈 NUEVO
+        return 'Pagado';
       default:
         return status;
     }
@@ -115,7 +112,7 @@ class OrdersScreen extends StatelessWidget {
       case 'cancelled':
         return Colors.red[700] ?? scheme.error;
       case 'paid':
-        return Colors.green[800] ?? scheme.primary; // 👈 NUEVO
+        return Colors.green[800] ?? scheme.primary;
       default:
         return scheme.primary;
     }
@@ -137,9 +134,6 @@ class OrdersScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // --------------------------------
-          // Carrito actual
-          // --------------------------------
           Text(
             'Carrito actual',
             style: theme.textTheme.titleMedium?.copyWith(
@@ -207,19 +201,23 @@ class OrdersScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // 👉 Flujo actual (crea pedido "pending" sin Stripe)
+
+                    // 👉 Recoger en tienda (flujo directo)
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.store_mall_directory),
                         onPressed: () => _placeOrder(context, cart),
-                        child: const Text('Confirmar pedido'),
+                        label: const Text('Recoger en tienda'),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // 👉 Nuevo flujo: pago con Stripe
+
+                    // 👉 Pedir a domicilio (Stripe)
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.delivery_dining),
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -227,7 +225,7 @@ class OrdersScreen extends StatelessWidget {
                             ),
                           );
                         },
-                        child: const Text('Pagar con tarjeta (Stripe Test)'),
+                        label: const Text('Pedir a domicilio'),
                       ),
                     ),
                   ],
@@ -236,9 +234,6 @@ class OrdersScreen extends StatelessWidget {
             ),
           const SizedBox(height: 24),
 
-          // --------------------------------
-          // Historial
-          // --------------------------------
           Text(
             'Historial',
             style: theme.textTheme.titleMedium?.copyWith(

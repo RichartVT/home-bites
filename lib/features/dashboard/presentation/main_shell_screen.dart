@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
-
 import 'home_screen.dart';
 import 'orders_screen.dart';
 import 'profile_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
-  const MainShellScreen({super.key});
+  final int tabIndex;
+
+  const MainShellScreen({super.key, this.tabIndex = 0}); // 👈 default = 0
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final _screens = const [HomeScreen(), OrdersScreen(), ProfileScreen()];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.tabIndex; // 👈 usar tabIndex recibido
+  }
 
   @override
   Widget build(BuildContext context) {

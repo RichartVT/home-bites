@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homebites_app/features/dashboard/presentation/addresses_screen.dart';
 import 'package:homebites_app/features/dashboard/presentation/wallet_screen.dart';
 import 'package:homebites_app/features/payments/presentation/subscription_screen.dart';
 import 'package:provider/provider.dart';
@@ -6,8 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/application/auth_provider.dart';
 import '../../../core/services/notification_service.dart';
-
-import '../../payments/presentation/subscription_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -156,11 +155,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: const Text('Direcciones de entrega'),
                   subtitle: const Text('Agregar o administrar direcciones'),
                   onTap: () {
-                    // Luego conectamos a pantalla de direcciones
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Pendiente: direcciones 🙂'),
-                        duration: Duration(milliseconds: 900),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AddressesScreen(),
                       ),
                     );
                   },
