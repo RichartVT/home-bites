@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:homebites_app/features/dashboard/presentation/wallet_screen.dart';
 import 'package:homebites_app/features/payments/presentation/subscription_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -174,6 +175,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       MaterialPageRoute(
                         builder: (_) => const SubscriptionScreen(),
                       ),
+                    );
+                  },
+                ),
+                const Divider(height: 0),
+
+                ListTile(
+                  leading: Icon(Icons.account_balance_wallet),
+                  title: Text('Billetera'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const WalletScreen()),
                     );
                   },
                 ),

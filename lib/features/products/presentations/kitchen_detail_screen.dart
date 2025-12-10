@@ -5,11 +5,9 @@ import 'package:provider/provider.dart';
 import '../domain/dish.dart';
 import '../domain/kitchen.dart';
 import '../../orders/application/cart_provider.dart';
-import 'dish_form_screen.dart'; // 👈 mismo folder de presentations
-import 'kitchen_form_screen.dart'; // 👈 añade este
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dish_form_screen.dart';
+import 'kitchen_form_screen.dart';
+import 'dish_detail_screen.dart'; // 👈 nueva pantalla
 
 class KitchenDetailScreen extends StatelessWidget {
   final Kitchen kitchen;
@@ -23,12 +21,7 @@ class KitchenDetailScreen extends StatelessWidget {
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
-              .map(
-                (doc) => Dish.fromFirestore(
-                  doc.data(), // 👈 primero el Map<String, dynamic>
-                  doc.id, // 👈 luego el id
-                ),
-              )
+              .map((doc) => Dish.fromFirestore(doc.data(), doc.id))
               .toList();
         });
   }
@@ -54,7 +47,6 @@ class KitchenDetailScreen extends StatelessWidget {
       ),
       body: CustomScrollView(
         slivers: [
-          // App bar con imagen grande
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
@@ -64,14 +56,11 @@ class KitchenDetailScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
             ),
             actions: [
-              // BOTÓN EDITAR (AZUL)
               IconButton(
                 tooltip: 'Editar cocina',
                 icon: const Icon(
                   Icons.edit_note,
-                  color: Color(
-                    0xFF1976D2,
-                  ), // azul vivo estilo Material Blue 700
+                  color: Color(0xFF1976D2),
                   size: 28,
                 ),
                 onPressed: () async {
@@ -82,15 +71,11 @@ class KitchenDetailScreen extends StatelessWidget {
                   );
                 },
               ),
-
-              // BOTÓN ELIMINAR (ROJO)
               IconButton(
                 tooltip: 'Eliminar cocina',
                 icon: const Icon(
                   Icons.delete_forever,
-                  color: Color(
-                    0xFFD32F2F,
-                  ), // rojo intenso estilo Material Red 700
+                  color: Color(0xFFD32F2F),
                   size: 26,
                 ),
                 onPressed: () async {
@@ -112,7 +97,7 @@ class KitchenDetailScreen extends StatelessWidget {
                           child: const Text(
                             'Eliminar',
                             style: TextStyle(
-                              color: Color(0xFFD32F2F), // rojo
+                              color: Color(0xFFD32F2F),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -125,13 +110,11 @@ class KitchenDetailScreen extends StatelessWidget {
                     try {
                       final firestore = FirebaseFirestore.instance;
 
-                      // 1) eliminar cocina
                       await firestore
                           .collection('kitchens')
                           .doc(kitchen.id)
                           .delete();
 
-                      // 2) eliminar sus platillos
                       final dishesSnap = await firestore
                           .collection('dishes')
                           .where('kitchenId', isEqualTo: kitchen.id)
@@ -142,7 +125,7 @@ class KitchenDetailScreen extends StatelessWidget {
                       }
 
                       if (context.mounted) {
-                        Navigator.of(context).pop(); // volver al home
+                        Navigator.of(context).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Cocina eliminada correctamente 🗑️'),
@@ -162,7 +145,6 @@ class KitchenDetailScreen extends StatelessWidget {
                 },
               ),
             ],
-
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsetsDirectional.only(
                 start: 16,
@@ -197,8 +179,6 @@ class KitchenDetailScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // Info básica de la cocina
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -254,8 +234,6 @@ class KitchenDetailScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // Lista de platillos desde Firestore
           SliverToBoxAdapter(
             child: StreamBuilder<List<Dish>>(
               stream: _dishesStream(),
@@ -296,10 +274,7 @@ class KitchenDetailScreen extends StatelessWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final dish = dishes[index];
-                    return _DishTile(
-                      dish: dish,
-                      kitchen: kitchen, // 👈 pasamos la cocina actual
-                    );
+                    return _DishTile(dish: dish, kitchen: kitchen);
                   },
                 );
               },
@@ -326,8 +301,7 @@ class _DishTile extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar platillo'),
         content: Text(
-          '¿Seguro que quieres eliminar "${dish.name}"?\n'
-          'Esta acción no se puede deshacer.',
+          '¿Seguro que quieres eliminar "${dish.name}"?\nEsta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -361,7 +335,6 @@ class _DishTile extends StatelessWidget {
         builder: (_) => DishFormScreen(kitchen: kitchen, dish: dish),
       ),
     );
-    // El StreamBuilder recarga automáticamente, no necesitamos hacer nada más
   }
 
   @override
@@ -374,142 +347,160 @@ class _DishTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Imagen con Hero y onTap
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      DishDetailScreen(dish: dish, kitchen: kitchen),
+                ),
+              );
+            },
+            child: Hero(
+              tag: dish.id,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: dish.imageUrl.isNotEmpty
+                    ? Image.network(
+                        dish.imageUrl,
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        height: 80,
+                        width: 80,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.fastfood),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           // Info del platillo
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (dish.isPopular)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        DishDetailScreen(dish: dish, kitchen: kitchen),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (dish.isPopular)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Popular',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.orange[800],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        margin: const EdgeInsets.only(right: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[50],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                      Expanded(
                         child: Text(
-                          'Popular',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.orange[800],
+                          dish.name,
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                    Expanded(
-                      child: Text(
-                        dish.name,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      const SizedBox(width: 4),
+                      PopupMenuButton<String>(
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'edit':
+                              _editDish(context);
+                              break;
+                            case 'delete':
+                              _deleteDish(context);
+                              break;
+                          }
+                        },
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: const [
+                                Icon(Icons.edit, size: 18, color: Colors.blue),
+                                SizedBox(width: 8),
+                                Text('Editar'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: const [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Eliminar'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (dish.description.isNotEmpty)
+                    Text(
+                      dish.description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[700],
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    PopupMenuButton<String>(
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'edit':
-                            _editDish(context);
-                            break;
-                          case 'delete':
-                            _deleteDish(context);
-                            break;
-                        }
-                      },
-                      itemBuilder: (ctx) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: const [
-                              Icon(Icons.edit, size: 18, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text('Editar'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: const [
-                              Icon(Icons.delete, size: 18, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Eliminar'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                if (dish.description.isNotEmpty)
+                  const SizedBox(height: 6),
                   Text(
-                    dish.description,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[700],
+                    '\$${dish.price.toStringAsFixed(0)}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                const SizedBox(height: 6),
-                Text(
-                  '\$${dish.price.toStringAsFixed(0)}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Botón "Agregar"
-                SizedBox(
-                  height: 32,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      cart.addDish(kitchen, dish);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${dish.name} se agregó al carrito'),
-                          duration: const Duration(milliseconds: 900),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 32,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        cart.addDish(kitchen, dish);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${dish.name} se agregó al carrito'),
+                            duration: const Duration(milliseconds: 900),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 0,
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 0,
+                        side: BorderSide(color: theme.colorScheme.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      side: BorderSide(color: theme.colorScheme.primary),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      child: const Text('Agregar'),
                     ),
-                    child: const Text('Agregar'),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Imagen del platillo
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: dish.imageUrl.isNotEmpty
-                ? Image.network(
-                    dish.imageUrl,
-                    height: 80,
-                    width: 80,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    height: 80,
-                    width: 80,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.fastfood),
-                  ),
           ),
         ],
       ),
